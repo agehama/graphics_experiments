@@ -1,5 +1,3 @@
-#pragma once
-
 #include <string>
 #include <optional>
 
@@ -8,8 +6,12 @@
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
 
+#include <d3dcompiler.h>
+
 #include "logger.hpp"
 #include "dx.hpp"
+#include "mesh.hpp"
+#include "shaderPipeline.hpp"
 
 namespace
 {
@@ -23,22 +25,6 @@ namespace
 
         debugLayer->Release();
     }
-
-    inline std::wstring ErrorMessage(HRESULT result)
-    {
-        const _com_error error(result);
-        const std::wstring errorMessage(error.ErrorMessage());
-        return errorMessage.empty() ? std::wstring{ L"Unknown Error" } : errorMessage;
-    }
-}
-
-#define Check(result)\
-{\
-    if (FAILED(result))\
-    {\
-        ErrorLog(ErrorMessage(result));\
-        return false;\
-    }\
 }
 
 bool Dx::init(HWND hwnd, int width, int height)
@@ -124,6 +110,17 @@ bool Dx::init(HWND hwnd, int width, int height)
 
     Check(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator, nullptr, IID_PPV_ARGS(&m_commandList)));
 
+    m_windowViewport.Width = width;
+    m_windowViewport.Height = height;
+    m_windowViewport.TopLeftX = 0;
+    m_windowViewport.TopLeftY = 0;
+    m_windowViewport.MaxDepth = 1.f;
+    m_windowViewport.MinDepth = 0.f;
+
+    m_scissorRect.top = 0;
+    m_scissorRect.left = 0;
+    m_scissorRect.right = width;
+    m_scissorRect.bottom = height;
 
     return true;
 }
@@ -151,6 +148,18 @@ bool Dx::frameBegin()
 
     m_commandList->ClearRenderTargetView(rtvHeap, m_clearColor.data(), 0, nullptr);
 
+
+    m_commandList->RSSetViewports(1, &m_windowViewport);
+
+    m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+    m_commandList->IASetPrimitiveTopology(m_primitiveTOpology);
+
+    return true;
+}
+
+bool Dx::frameEnd()
+{
     {
         m_backBufferBD.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
         m_backBufferBD.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
@@ -158,11 +167,6 @@ bool Dx::frameBegin()
         m_commandList->ResourceBarrier(1, &m_backBufferBD);
     }
 
-    return true;
-}
-
-bool Dx::frameEnd()
-{
     m_commandList->Close();
 
     ID3D12CommandList* commandLists[] = { m_commandList };
@@ -199,4 +203,20 @@ bool Dx::frameEnd()
     m_swapChain->Present(1, 0);
 
     return true;
+}
+
+void Dx::setPipeline(const ShaderPipeline& pipeline)
+{
+    m_commandList->SetPipelineState(pipeline.m_pipelineState);
+
+    m_commandList->SetGraphicsRootSignature(pipeline.m_rootSignature);
+}
+
+void Dx::draw(const Mesh& mesh)
+{
+    m_commandList->IASetVertexBuffers(0, 1, &mesh.m_vbView);
+
+    m_commandList->IASetIndexBuffer(&mesh.m_ibView);
+
+    m_commandList->DrawIndexedInstanced(mesh.m_indicesCount, 1, 0, 0, 0);
 }

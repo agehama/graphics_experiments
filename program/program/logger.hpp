@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#pragma once
 
 #include <fstream>
 #include <regex>
@@ -49,3 +48,30 @@ inline void ClearLog() {}
 #define DebugLog(message)
 
 #endif
+
+#include <comdef.h>
+
+inline std::wstring ErrorMessage(HRESULT result)
+{
+    const _com_error error(result);
+    const std::wstring errorMessage(error.ErrorMessage());
+    return errorMessage.empty() ? std::wstring{ L"Unknown Error" } : errorMessage;
+}
+
+#define Check(result)\
+{\
+    if (FAILED(result))\
+    {\
+        ErrorLog(ErrorMessage(result));\
+        return false;\
+    }\
+}
+
+#define CheckOpt(result)\
+{\
+    if (FAILED(result))\
+    {\
+        ErrorLog(ErrorMessage(result));\
+        return std::nullopt;\
+    }\
+}

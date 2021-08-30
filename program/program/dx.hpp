@@ -1,16 +1,25 @@
 #pragma once
 
 #include <array>
+#include <optional>
 
 #include <Windows.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 
+class Mesh;
+
+class ShaderPipeline;
+
 class Dx
 {
 public:
 
-    Dx() = default;
+    static Dx& instance()
+    {
+        static Dx i;
+        return i;
+    }
 
     bool init(HWND hwnd, int width, int height);
 
@@ -18,7 +27,15 @@ public:
 
     bool frameEnd();
 
+    ID3D12Device* device() { return m_device; }
+
+    void setPipeline(const ShaderPipeline& pipeline);
+
+    void draw(const Mesh& mesh);
+
 private:
+
+    Dx() = default;
 
     ID3D12Device* m_device = nullptr;
 
@@ -41,4 +58,10 @@ private:
     ID3D12DescriptorHeap* m_backBufferHeaps = nullptr;
 
     std::array<float, 4> m_clearColor = { 0.f,0.f,0.f,1.f };
+
+    D3D12_VIEWPORT m_windowViewport = {};
+
+    D3D12_RECT m_scissorRect = {};
+
+    D3D12_PRIMITIVE_TOPOLOGY m_primitiveTOpology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 };
